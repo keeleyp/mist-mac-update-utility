@@ -21,7 +21,6 @@
 
   function flash(msg, kind = "ok") {
     $("#flash").innerHTML = `<div class="alert ${kind}">${msg}</div>`;
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // Does a record still match the search it was found with?

@@ -19,7 +19,15 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .brand { font-weight: 700; font-size: 16px; }
 .org { flex: 1; }
 .logout { color: var(--muted); }
-main { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+/* Full-height layout: header, search form and messages stay put; only the
+   results table scrolls (inside .table-wrap), with its column headers pinned. */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow: hidden; }
+.topbar { flex: none; }
+main { flex: 1; min-height: 0; width: 100%; max-width: 1400px; margin: 0 auto; padding: 20px 24px;
+  display: flex; flex-direction: column; overflow-y: auto; }
+main > * { flex: none; }
+main > .card.results { flex: 1 1 auto; min-height: 320px; display: flex; flex-direction: column; margin-bottom: 0; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
@@ -49,10 +57,11 @@ button.primary:hover:not(:disabled) { background: var(--accent-dark); }
 .results-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .results-head h2 { margin: 0; font-size: 16px; }
 #filter { width: 280px; max-width: 100%; }
-.table-wrap { overflow-x: auto; }
+.table-wrap { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-thead th { font-size: 12px; color: var(--muted); position: sticky; top: 0; background: var(--card); }
+thead th { font-size: 12px; color: var(--muted); position: sticky; top: 0; z-index: 1; background: var(--card);
+  border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 tbody tr:hover { background: var(--hover); }
 td.notes { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tr.stale td { opacity: .6; }
