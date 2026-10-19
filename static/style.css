@@ -38,7 +38,7 @@ button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover:not(:disabled) { background: var(--accent-dark); }
 
-.search { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.search { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
 .buttons { display: flex; gap: 8px; justify-content: flex-end; }
 @media (max-width: 800px) { .search { grid-template-columns: 1fr; } .buttons { justify-content: stretch; } }
 

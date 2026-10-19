@@ -70,28 +70,31 @@ if CHANGE_LOG and not os.path.isabs(CHANGE_LOG):
     CHANGE_LOG = os.path.join(APP_DIR, CHANGE_LOG)
 
 
-def ini_list(section):
-    """[(value, description), ...] in .ini order, de-duplicated."""
-    if section not in config:
-        return []
-    seen, items = set(), []
-    for key, desc in config[section].items():
-        key = key.strip()
-        if key and key not in seen:
-            seen.add(key)
-            items.append((key, (desc or "").strip()))
-    return items
+def load_choices():
+    """[vlans] lines are  <vlan> = <label>[, <label> ...]. Returns the allowed
+    (label, vlan) pairs as dicts sorted by label, then VLAN."""
+    if "vlans" not in config or not config["vlans"]:
+        sys.exit(f"{INI_NAME} needs at least one line in [vlans], e.g.  240 = cctv")
+    pairs = set()
+    for vlan, labels in config["vlans"].items():
+        vlan = vlan.strip()
+        if not re.fullmatch(r"\d{1,4}", vlan) or not 1 <= int(vlan) <= 4094:
+            sys.exit(f"[vlans] in {INI_NAME}: '{vlan}' is not a valid VLAN ID (1-4094).")
+        names = [l.strip() for l in (labels or "").split(",") if l.strip()]
+        if not names:
+            sys.exit(f"[vlans] in {INI_NAME}: VLAN {vlan} has no Client Label.")
+        bad = [l for l in names if "|" in l]
+        if bad:
+            sys.exit(f"[vlans] in {INI_NAME}: '|' is not allowed in a Client Label ({', '.join(bad)}).")
+        pairs.update((l, vlan) for l in names)
+    return [{"key": f"{l}|{v}", "label": l, "vlan": v, "text": f"{l} (VLAN {v})"}
+            for l, v in sorted(pairs, key=lambda p: (p[0].lower(), int(p[1])))]
 
 
-VLANS = ini_list("vlans")
-LABELS = ini_list("labels")
-VLAN_IDS = [v for v, _ in VLANS]
-LABEL_NAMES = [l for l, _ in LABELS]
-if not VLANS or not LABELS:
-    sys.exit(f"{INI_NAME} needs at least one entry in both [vlans] and [labels].")
-bad_vlans = [v for v in VLAN_IDS if not re.fullmatch(r"\d{1,4}", v) or not 1 <= int(v) <= 4094]
-if bad_vlans:
-    sys.exit(f"[vlans] in {INI_NAME} has invalid VLAN IDs (must be 1-4094): {', '.join(bad_vlans)}")
+CHOICES = load_choices()
+CHOICE_BY_KEY = {c["key"]: c for c in CHOICES}
+ALLOWED_PAIRS = {(c["label"], c["vlan"]) for c in CHOICES}
+LABEL_NAMES = {c["label"] for c in CHOICES}
 
 
 # --------------------------------------------------------------------------
@@ -272,8 +275,11 @@ def record_view(rec, sites):
         "notes": rec.get("notes", ""),
         "vlan": str(rec.get("vlan", "")),
         "labels": labels,
-        # editable label = the first label that is in the .ini list
-        "label": next((l for l in labels if l in LABEL_NAMES), labels[0] if labels else ""),
+        # editable label = the first label whose (label, vlan) pair is in the .ini
+        "label": next((l for l in labels if (l, str(rec.get("vlan", ""))) in ALLOWED_PAIRS),
+                      next((l for l in labels if l in LABEL_NAMES), labels[0] if labels else "")),
+        "choice": next((f"{l}|{rec.get('vlan', '')}" for l in labels
+                        if (l, str(rec.get("vlan", ""))) in ALLOWED_PAIRS), ""),
         "site_ids": site_ids,
         "site_id": site_ids[0] if site_ids else "",
         "site_names": [sites.get(s, s) for s in site_ids],
@@ -349,47 +355,45 @@ def index():
     try:
         sites = get_sites()
     except MistError as e:
-        return render_template("index.html", sites={}, vlans=VLANS, labels=LABELS, error=str(e),
+        return render_template("index.html", sites={}, choices=CHOICES, error=str(e),
                                searched=False, results=[], sel={}, all_value=ALL)
 
-    sel = {
-        "site": request.args.get("site", ALL),
-        "vlan": request.args.get("vlan", ALL),
-        "label": request.args.get("label", ALL),
-    }
+    sel = {"site": request.args.get("site", ALL), "client": request.args.get("client", ALL)}
     searched = "search" in request.args
     results = []
     if searched:
-        want_sites = set(sites) if sel["site"] == ALL else {sel["site"]}
-        want_vlans = set(VLAN_IDS) if sel["vlan"] == ALL else {sel["vlan"]}
-        want_labels = set(LABEL_NAMES) if sel["label"] == ALL else {sel["label"]}
-        if not (want_sites <= set(sites) and want_vlans <= set(VLAN_IDS) and want_labels <= set(LABEL_NAMES)):
+        if sel["site"] != ALL and sel["site"] not in sites:
             abort(400)
+        if sel["client"] != ALL and sel["client"] not in CHOICE_BY_KEY:
+            abort(400)
+        want_sites = set(sites) if sel["site"] == ALL else {sel["site"]}
+        one = CHOICE_BY_KEY.get(sel["client"])
+        want_pairs = {(one["label"], one["vlan"])} if one else ALLOWED_PAIRS
         try:
-            recs = search_usermacs(None if sel["label"] == ALL else sel["label"])
+            recs = search_usermacs(one["label"] if one else None)
         except MistError as e:
             recs, error = [], str(e)
         for rec in recs:
+            vlan = str(rec.get("vlan", ""))
             if (want_sites & set(rec.get("site_ids") or [])
-                    and str(rec.get("vlan", "")) in want_vlans
-                    and want_labels & set(rec.get("labels") or [])):
+                    and any((l, vlan) in want_pairs for l in rec.get("labels") or [])):
                 results.append(record_view(rec, sites))
-        results.sort(key=lambda r: (r["site_names"][:1], r["vlan"].zfill(4), r["label"], r["mac"]))
+        results.sort(key=lambda r: (r["site_names"][:1], r["label"].lower(), r["vlan"].zfill(4), r["mac"]))
 
-    return render_template("index.html", sites=sites, vlans=VLANS, labels=LABELS, error=error,
+    return render_template("index.html", sites=sites, choices=CHOICES, error=error,
                            searched=searched, results=results, sel=sel, all_value=ALL)
 
 
 def validate_choice(data, sites):
-    """Check site / vlan / label against the allowed lists; return (site, vlan, label) or raise."""
-    site, vlan, label = (str(data.get(k, "")).strip() for k in ("site_id", "vlan", "label"))
+    """Check the site and Client Label (label|vlan) against the allowed lists;
+    return (site, vlan, label) or raise ValueError."""
+    site = str(data.get("site_id", "")).strip()
+    choice = CHOICE_BY_KEY.get(str(data.get("client", "")).strip())
     if site not in sites:
         raise ValueError("Choose a valid site.")
-    if vlan not in VLAN_IDS:
-        raise ValueError(f"VLAN {vlan or '(blank)'} is not in the allowed list.")
-    if label not in LABEL_NAMES:
-        raise ValueError(f"Client Label {label or '(blank)'} is not in the allowed list.")
-    return site, vlan, label
+    if not choice:
+        raise ValueError("Choose a Client Label from the list.")
+    return site, choice["vlan"], choice["label"]
 
 
 @app.route("/api/usermacs/<usermac_id>", methods=["PUT"])
@@ -495,7 +499,7 @@ def bad_request(_):
 if __name__ == "__main__":
     check_org()
     print(f"Mist MAC Update Utility - org '{ORG_NAME}' on {urlparse(API_HOST).netloc}")
-    print(f"  {len(VLANS)} VLANs and {len(LABELS)} Client Labels allowed (from {INI_NAME})")
+    print(f"  {len(CHOICES)} Client Label / VLAN choices allowed (from {INI_NAME})")
     if HOST not in ("127.0.0.1", "localhost") and not PIN:
         print("  WARNING: listening on the network with no PIN - anyone who can reach this "
               "port can change the Client List. Set [app] pin.")

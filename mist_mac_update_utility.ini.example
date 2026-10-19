@@ -19,19 +19,15 @@ pin =
 # Every change (before -> after) is appended to this file. Blank = no log.
 change_log = mist_mac_update_utility_changes.log
 
-# VLANs users may search on and assign. One per line:  <vlan> = <description>
-# The description is optional and only shown in the drop-downs.
-# "All" in the search form means every VLAN listed here.
-[vlans]
-104 = IP telephony
-240 = CCTV
-
-# Client Labels users may search on and assign. One per line:  <label> = <description>
+# Client Labels users may search on and assign, grouped by the VLAN they use.
+# One line per VLAN:  <vlan id> = <client label>[, <client label> ...]
+# A label may appear under more than one VLAN - the drop-downs then show it
+# once per VLAN, e.g. "bms_trend (VLAN 12)" and "bms_trend (VLAN 232)".
 # Label names are case-sensitive and must match Mist exactly.
-# "All" in the search form means every label listed here.
-[labels]
-ipt = IP phones
-cctv = CCTV cameras
+# "All" in the search form means every label/VLAN pair listed here.
+[vlans]
+104 = ipt
+240 = cctv
 
 # Optional - only needed if you're behind a TLS-inspecting proxy (e.g.
 # Zscaler). Delete this whole section, or leave the values blank, to use

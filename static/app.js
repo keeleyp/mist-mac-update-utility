@@ -2,14 +2,13 @@
   const D = window.MUU;
   const $ = (sel, root = document) => root.querySelector(sel);
   const records = new Map(D.results.map(r => [r.id, r]));
-  const vlanDesc = Object.fromEntries(D.vlans);
-  const labelDesc = Object.fromEntries(D.labels);
+  const choiceByKey = Object.fromEntries(D.choices.map(c => [c.key, c]));
+  const labelNames = new Set(D.choices.map(c => c.label));
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const siteName = id => D.sites[id] || id || "—";
-  const vlanText = v => v + (vlanDesc[v] ? ` – ${vlanDesc[v]}` : "");
-  const labelText = l => l + (labelDesc[l] ? ` – ${labelDesc[l]}` : "");
+  const choiceText = (label, vlan) => `${label || "—"} (VLAN ${vlan || "—"})`;
 
   function fillSelect(sel, items, current, placeholder) {
     sel.innerHTML = (placeholder ? `<option value="">${esc(placeholder)}</option>` : "") +
@@ -18,8 +17,7 @@
     if (sel.value !== (current ?? "")) sel.value = "";
   }
   const siteItems = () => Object.entries(D.sites);
-  const vlanItems = () => D.vlans.map(([v]) => [v, vlanText(v)]);
-  const labelItems = () => D.labels.map(([l]) => [l, labelText(l)]);
+  const choiceItems = () => D.choices.map(c => [c.key, c.text]);
 
   function flash(msg, kind = "ok") {
     $("#flash").innerHTML = `<div class="alert ${kind}">${msg}</div>`;
@@ -30,9 +28,8 @@
   function matchesSearch(r) {
     const s = D.sel;
     const siteOk = s.site === D.all ? r.site_ids.some(id => id in D.sites) : r.site_ids.includes(s.site);
-    const vlanOk = s.vlan === D.all ? D.vlans.some(([v]) => v === r.vlan) : r.vlan === s.vlan;
-    const labelOk = s.label === D.all ? r.labels.some(l => l in labelDesc) : r.labels.includes(s.label);
-    return siteOk && vlanOk && labelOk;
+    const clientOk = s.client === D.all ? !!r.choice : r.labels.some(l => `${l}|${r.vlan}` === s.client);
+    return siteOk && clientOk;
   }
 
   // ---------------------------------------------------------------- table
@@ -129,18 +126,17 @@
   let editing = null;
   const edit = wizard(editDlg, {
     review() {
-      const r = editing, s = $("#e-site").value, v = $("#e-vlan").value, l = $("#e-label").value;
-      if (!s || !v || !l) return "Choose a site, VLAN and Client Label.";
-      if (s === r.site_id && v === r.vlan && l === r.label && r.site_ids.length === 1) return "Nothing has been changed.";
+      const r = editing, s = $("#e-site").value, c = choiceByKey[$("#e-client").value];
+      if (!s || !c) return "Choose a site and Client Label.";
+      if (s === r.site_id && c.key === r.choice && r.site_ids.length === 1) return "Nothing has been changed.";
       $("#edit-diff").innerHTML =
         diffRow("Site", r.site_names.join(", ") || "—", siteName(s)) +
-        diffRow("VLAN", vlanText(r.vlan), vlanText(v)) +
-        diffRow("Client Label", r.label ? labelText(r.label) : "—", labelText(l));
+        diffRow("Client Label", choiceText(r.label, r.vlan), c.text);
       return "";
     },
     async submit(showErr) {
       const { ok, status, data } = await call("PUT", `/api/usermacs/${editing.id}`, {
-        site_id: $("#e-site").value, vlan: $("#e-vlan").value, label: $("#e-label").value,
+        site_id: $("#e-site").value, client: $("#e-client").value,
         updated_at: editing.updated_at,
       });
       if (data.record) records.set(data.record.id, data.record);
@@ -164,9 +160,8 @@
     $("#edit-title").textContent = `Edit ${r.mac_display}`;
     $("#edit-sub").textContent = [r.name, r.notes].filter(Boolean).join(" · ");
     fillSelect($("#e-site"), siteItems(), r.site_id, r.site_id in D.sites ? null : "Choose a site…");
-    fillSelect($("#e-vlan"), vlanItems(), r.vlan, D.vlans.some(([v]) => v === r.vlan) ? null : "Choose a VLAN…");
-    fillSelect($("#e-label"), labelItems(), r.label, r.label in labelDesc ? null : "Choose a label…");
-    const others = r.labels.filter(l => !(l in labelDesc));
+    fillSelect($("#e-client"), choiceItems(), r.choice, r.choice ? null : "Choose a Client Label…");
+    const others = r.labels.filter(l => l !== r.label && !labelNames.has(l));
     const note = $("#e-other-labels");
     note.hidden = !others.length && r.site_ids.length < 2;
     note.textContent = [
@@ -185,19 +180,19 @@
       const mac = normMac($("#a-mac").value);
       if (mac.length !== 12) return "Enter a MAC address with 12 hex digits.";
       if (parseInt(mac.slice(0, 2), 16) & 1) return "That is a multicast MAC address, not a device.";
-      if (!$("#a-site").value || !$("#a-vlan").value || !$("#a-label").value)
-        return "Site, VLAN and Client Label are all required.";
+      if (!$("#a-site").value || !$("#a-client").value)
+        return "Site and Client Label are both required.";
       $("#add-diff").innerHTML = [
-        ["MAC", fmtMac(mac)], ["Site", siteName($("#a-site").value)], ["VLAN", vlanText($("#a-vlan").value)],
-        ["Client Label", labelText($("#a-label").value)], ["Name", $("#a-name").value.trim() || "—"],
+        ["MAC", fmtMac(mac)], ["Site", siteName($("#a-site").value)],
+        ["Client Label", choiceByKey[$("#a-client").value].text], ["Name", $("#a-name").value.trim() || "—"],
         ["Notes", $("#a-notes").value.trim() || "—"],
       ].map(([k, v]) => `<tr><th>${esc(k)}</th><td colspan="3">${esc(v)}</td></tr>`).join("");
       return "";
     },
     async submit(showErr) {
       const { ok, status, data } = await call("POST", "/api/usermacs", {
-        mac: $("#a-mac").value, site_id: $("#a-site").value, vlan: $("#a-vlan").value,
-        label: $("#a-label").value, name: $("#a-name").value, notes: $("#a-notes").value,
+        mac: $("#a-mac").value, site_id: $("#a-site").value, client: $("#a-client").value,
+        name: $("#a-name").value, notes: $("#a-notes").value,
       });
       if (!ok) {
         let msg = esc(data.error || "Add failed.");
@@ -218,8 +213,7 @@
     $("#a-mac").value = $("#a-name").value = $("#a-notes").value = "";
     const pre = (v, list) => v !== D.all && list.some(([k]) => k === v) ? v : "";
     fillSelect($("#a-site"), siteItems(), pre(D.sel.site, siteItems()), "Choose a site…");
-    fillSelect($("#a-vlan"), vlanItems(), pre(D.sel.vlan, D.vlans), "Choose a VLAN…");
-    fillSelect($("#a-label"), labelItems(), pre(D.sel.label, D.labels), "Choose a label…");
+    fillSelect($("#a-client"), choiceItems(), pre(D.sel.client, choiceItems()), "Choose a Client Label…");
     add.reset();
     $("#a-mac").focus();
   });

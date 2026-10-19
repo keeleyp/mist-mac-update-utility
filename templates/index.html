@@ -11,19 +11,11 @@
       {% endfor %}
     </select>
   </label>
-  <label>VLAN
-    <select name="vlan">
-      <option value="{{ all_value }}">All listed VLANs ({{ vlans|length }})</option>
-      {% for v, desc in vlans %}
-      <option value="{{ v }}" {% if sel.vlan == v %}selected{% endif %}>{{ v }}{% if desc %} – {{ desc }}{% endif %}</option>
-      {% endfor %}
-    </select>
-  </label>
   <label>Client Label
-    <select name="label">
-      <option value="{{ all_value }}">All listed labels ({{ labels|length }})</option>
-      {% for l, desc in labels %}
-      <option value="{{ l }}" {% if sel.label == l %}selected{% endif %}>{{ l }}{% if desc %} – {{ desc }}{% endif %}</option>
+    <select name="client">
+      <option value="{{ all_value }}">All listed labels ({{ choices|length }})</option>
+      {% for c in choices %}
+      <option value="{{ c.key }}" {% if sel.client == c.key %}selected{% endif %}>{{ c.text }}</option>
       {% endfor %}
     </select>
   </label>
@@ -52,7 +44,7 @@
   <p id="empty" class="muted" hidden>No entries match.</p>
 </section>
 {% else %}
-<p class="muted hint">Choose a site, VLAN and Client Label, then Search. “All” means every value listed in the .ini file.</p>
+<p class="muted hint">Choose a site and Client Label, then Search. “All” means every Client Label / VLAN listed in the .ini file.</p>
 {% endif %}
 
 <dialog id="edit-dlg">
@@ -61,8 +53,7 @@
     <p class="muted" id="edit-sub"></p>
     <div class="step step-edit">
       <label>Site <select id="e-site" required></select></label>
-      <label>VLAN <select id="e-vlan" required></select></label>
-      <label>Client Label <select id="e-label" required></select></label>
+      <label>Client Label <select id="e-client" required></select></label>
       <p class="muted small" id="e-other-labels" hidden></p>
     </div>
     <div class="step step-confirm" hidden>
@@ -85,8 +76,7 @@
     <div class="step step-edit">
       <label>MAC address <input id="a-mac" placeholder="00:11:22:33:44:55" autocomplete="off" required></label>
       <label>Site <select id="a-site" required></select></label>
-      <label>VLAN <select id="a-vlan" required></select></label>
-      <label>Client Label <select id="a-label" required></select></label>
+      <label>Client Label <select id="a-client" required></select></label>
       <label><span>Name <span class="muted">(optional)</span></span><input id="a-name" maxlength="64" autocomplete="off"></label>
       <label><span>Notes <span class="muted">(optional)</span></span><input id="a-notes" maxlength="256" autocomplete="off"></label>
     </div>
@@ -107,8 +97,7 @@
 <script>
   window.MUU = {
     sites: {{ sites|tojson }},
-    vlans: {{ vlans|tojson }},
-    labels: {{ labels|tojson }},
+    choices: {{ choices|tojson }},
     results: {{ results|tojson }},
     sel: {{ sel|tojson }},
     all: {{ all_value|tojson }}
