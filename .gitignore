@@ -1,0 +1,5 @@
+*.ini
+!mist_mac_update_utility.ini.example
+*.log
+__pycache__/
+.venv/

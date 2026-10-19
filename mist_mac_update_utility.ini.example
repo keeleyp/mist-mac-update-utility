@@ -1,0 +1,49 @@
+[mist]
+org_id = YOUR_ORG_ID_HERE
+# API token with write access to this org (Org Admin, or Network Admin for all sites).
+api_token = YOUR_API_TOKEN_HERE
+# Mist cloud the org lives on - matches the portal you log in to:
+#   api.mist.com (US / Global 01)  api.eu.mist.com (EU)  api.gc1.mist.com
+#   api.gc2.mist.com  api.gc3.mist.com (EMEA 02)  api.gc4.mist.com ...
+# Short forms (eu, gc3) and portal URLs (https://manage.gc3.mist.com) also
+# work. Required.
+cloud =
+
+[app]
+# Address and port the web app listens on. 127.0.0.1 = this machine only;
+# 0.0.0.0 = reachable from the network (set a pin if you do this).
+host = 127.0.0.1
+port = 5050
+# Optional PIN users must enter before they can use the app. Blank = no PIN.
+pin =
+# Every change (before -> after) is appended to this file. Blank = no log.
+change_log = mist_mac_update_utility_changes.log
+
+# VLANs users may search on and assign. One per line:  <vlan> = <description>
+# The description is optional and only shown in the drop-downs.
+# "All" in the search form means every VLAN listed here.
+[vlans]
+104 = IP telephony
+240 = CCTV
+
+# Client Labels users may search on and assign. One per line:  <label> = <description>
+# Label names are case-sensitive and must match Mist exactly.
+# "All" in the search form means every label listed here.
+[labels]
+ipt = IP phones
+cctv = CCTV cameras
+
+# Optional - only needed if you're behind a TLS-inspecting proxy (e.g.
+# Zscaler). Delete this whole section, or leave the values blank, to use
+# normal system defaults (certifi's CA store, and the HTTP_PROXY /
+# HTTPS_PROXY / NO_PROXY environment variables if set).
+[network]
+# Path to a PEM file with your proxy's root CA certificate (or a bundle
+# that includes it).
+ca_bundle =
+# Only set this to false if you have no way to obtain the proxy's CA
+# certificate. This disables TLS certificate verification entirely.
+verify_ssl = true
+# Explicit proxy overrides - usually unnecessary.
+http_proxy =
+https_proxy =

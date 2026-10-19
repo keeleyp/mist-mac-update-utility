@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+
+<form class="card search" method="get" action="{{ url_for('index') }}">
+  <input type="hidden" name="search" value="1">
+  <label>Site
+    <select name="site">
+      <option value="{{ all_value }}">All sites ({{ sites|length }})</option>
+      {% for sid, name in sites.items() %}
+      <option value="{{ sid }}" {% if sel.site == sid %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>VLAN
+    <select name="vlan">
+      <option value="{{ all_value }}">All listed VLANs ({{ vlans|length }})</option>
+      {% for v, desc in vlans %}
+      <option value="{{ v }}" {% if sel.vlan == v %}selected{% endif %}>{{ v }}{% if desc %} – {{ desc }}{% endif %}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Client Label
+    <select name="label">
+      <option value="{{ all_value }}">All listed labels ({{ labels|length }})</option>
+      {% for l, desc in labels %}
+      <option value="{{ l }}" {% if sel.label == l %}selected{% endif %}>{{ l }}{% if desc %} – {{ desc }}{% endif %}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="buttons">
+    <button class="primary" type="submit">Search</button>
+    <button type="button" id="add-btn" {% if not sites %}disabled{% endif %}>+ Add MAC</button>
+  </div>
+</form>
+
+<div id="flash">{% if error %}<div class="alert error">{{ error }}</div>{% endif %}</div>
+
+{% if searched %}
+<section class="card results">
+  <div class="results-head">
+    <h2 id="count"></h2>
+    <input type="search" id="filter" placeholder="Filter by MAC, name or notes…" autocomplete="off">
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>MAC</th><th>Name</th><th>Site</th><th>VLAN</th><th>Client Label</th><th>Notes</th><th>Updated</th><th></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p id="empty" class="muted" hidden>No entries match.</p>
+</section>
+{% else %}
+<p class="muted hint">Choose a site, VLAN and Client Label, then Search. “All” means every value listed in the .ini file.</p>
+{% endif %}
+
+<dialog id="edit-dlg">
+  <form method="dialog" id="edit-form">
+    <h2 id="edit-title">Edit entry</h2>
+    <p class="muted" id="edit-sub"></p>
+    <div class="step step-edit">
+      <label>Site <select id="e-site" required></select></label>
+      <label>VLAN <select id="e-vlan" required></select></label>
+      <label>Client Label <select id="e-label" required></select></label>
+      <p class="muted small" id="e-other-labels" hidden></p>
+    </div>
+    <div class="step step-confirm" hidden>
+      <p>Update this entry in Mist?</p>
+      <table class="diff" id="edit-diff"></table>
+    </div>
+    <div class="alert error" id="edit-err" hidden></div>
+    <div class="buttons">
+      <button type="button" class="cancel">Cancel</button>
+      <button type="button" class="back" hidden>Back</button>
+      <button type="button" class="primary next">Review change</button>
+      <button type="button" class="primary confirm" hidden>Confirm update</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="add-dlg">
+  <form method="dialog" id="add-form">
+    <h2>Add MAC address</h2>
+    <div class="step step-edit">
+      <label>MAC address <input id="a-mac" placeholder="00:11:22:33:44:55" autocomplete="off" required></label>
+      <label>Site <select id="a-site" required></select></label>
+      <label>VLAN <select id="a-vlan" required></select></label>
+      <label>Client Label <select id="a-label" required></select></label>
+      <label><span>Name <span class="muted">(optional)</span></span><input id="a-name" maxlength="64" autocomplete="off"></label>
+      <label><span>Notes <span class="muted">(optional)</span></span><input id="a-notes" maxlength="256" autocomplete="off"></label>
+    </div>
+    <div class="step step-confirm" hidden>
+      <p>Add this entry to the Mist Client List?</p>
+      <table class="diff" id="add-diff"></table>
+    </div>
+    <div class="alert error" id="add-err" hidden></div>
+    <div class="buttons">
+      <button type="button" class="cancel">Cancel</button>
+      <button type="button" class="back" hidden>Back</button>
+      <button type="button" class="primary next">Review</button>
+      <button type="button" class="primary confirm" hidden>Confirm add</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  window.MUU = {
+    sites: {{ sites|tojson }},
+    vlans: {{ vlans|tojson }},
+    labels: {{ labels|tojson }},
+    results: {{ results|tojson }},
+    sel: {{ sel|tojson }},
+    all: {{ all_value|tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

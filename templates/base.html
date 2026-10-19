@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAC Update Utility</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">MAC Update Utility</div>
+  <div class="org">{{ org_name }} <span class="muted">· {{ cloud }}</span></div>
+  {% if pin_enabled and session.get('ok') %}<a class="logout" href="{{ url_for('logout') }}">Log out</a>{% endif %}
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

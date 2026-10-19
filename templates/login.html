@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="card login" method="post">
+  <h2>Enter PIN</h2>
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+  <input type="password" name="pin" autofocus autocomplete="current-password" inputmode="numeric">
+  <button class="primary" type="submit">Continue</button>
+</form>
+{% endblock %}
